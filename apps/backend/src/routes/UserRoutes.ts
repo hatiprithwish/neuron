@@ -40,13 +40,17 @@ UsersRoutes.post("/clerk-sync", checkAuth, async (c) => {
   return c.json(response, response.isSuccess ? 200 : 500);
 });
 
+// DEV_NOTE: 404 only when the row is genuinely missing — a DB failure is a 500, so the client can
+// tell "retry shortly, clerk-sync is still landing" from "the server is broken", and the logs
+// don't file an outage under not-found.
 UsersRoutes.get("/me", checkAuth, async (c) => {
   const clerkId = c.get("clerkUserId");
 
   const repo = new UsersRepo(c.env);
   const response = await repo.getUserDetails({ clerkId });
 
-  return c.json(response, response.isSuccess ? 200 : 404);
+  if (response.isSuccess) return c.json(response, 200);
+  return c.json(response, response.isNotFound ? 404 : 500);
 });
 
 UsersRoutes.patch(

@@ -39,7 +39,11 @@ function AuthenticatedLayout() {
 
   // DEV_NOTE: held until /users/me settles (success or failure) so no screen's first render computes
   // "today" in the device zone and then flips once users.tz arrives — see UsersQueries.me.
-  if (userQuery.isPending) return null;
+  // DEV_NOTE: isFetched, not isPending — a refetch of a query that has no data yet puts it back to
+  // `pending`, so gating on isPending unmounted every screen on each refetch, the remount started
+  // another fetch, and a failing /me looped forever. isFetched stays true once the first request
+  // has finished, whatever later refetches do.
+  if (!userQuery.isFetched) return null;
 
   return (
     // DEV_NOTE: min-h-dvh, not min-h-screen — 100vh on a mobile browser measures past the

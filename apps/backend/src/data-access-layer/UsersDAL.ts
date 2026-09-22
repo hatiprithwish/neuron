@@ -34,6 +34,7 @@ export default class UsersDAL {
           metadata: params,
         });
         response.message = message;
+        response.isNotFound = true;
         return response;
       }
 

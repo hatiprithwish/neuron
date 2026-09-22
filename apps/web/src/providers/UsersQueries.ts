@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/tanstack-react-start";
-import { apiClient } from "@/providers/apiClient";
+import { ApiError, apiClient } from "@/providers/apiClient";
 import { setActiveTimeZone } from "@/utils/timeZone";
 import type * as Schemas from "@app/schemas";
 import { toast } from "sonner";
@@ -9,6 +9,11 @@ import { toast } from "sonner";
 // footer, which are shared chrome rendered above every route, not a page of their own. `/settings`
 // reads and writes the same `me()` query rather than getting its own — one user row, one cache
 // entry. Lives here instead of a feature's `-data.ts` for that reason.
+// DEV_NOTE: three attempts in total, then stop. A 404 is worth retrying here, unlike the global
+// default — on a first sign-in /users/me races the layout's fire-and-forget clerk-sync, so the row
+// can appear a moment later. Any other 4xx (e.g. an expired token) won't fix itself on retry.
+const ME_MAX_ATTEMPTS = 3;
+
 export class UsersQueries {
   static readonly keys = {
     me: () => ["users", "me"] as const,
@@ -27,6 +32,14 @@ export class UsersQueries {
         setActiveTimeZone(response.user?.tz ?? null);
         return response;
       },
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status < 500 && error.status !== 404) return false;
+        return failureCount < ME_MAX_ATTEMPTS - 1;
+      },
+      // DEV_NOTE: a failed /me must not refetch every time a consumer mounts (the sidebar's Day N,
+      // the Today stat strip, settings) — that, combined with the layout's gate, was an endless
+      // request loop. A failure stays failed until something explicitly refetches or invalidates.
+      retryOnMount: false,
     });
   }
 }
