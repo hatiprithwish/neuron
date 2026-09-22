@@ -82,6 +82,12 @@ export enum LogAction {
   GetTrackerTimeline = "GetTrackerTimeline",
   RunCompute = "RunCompute",
 
+  // Neuron — daily log (one free-form note per user per day)
+  UpsertDailyLog = "UpsertDailyLog",
+  GetDailyLog = "GetDailyLog",
+  GetDailyLogs = "GetDailyLogs",
+  DeleteDailyLog = "DeleteDailyLog",
+
   // Infra — weekly orphan scan (architecture.md §4.1)
   RunOrphanScan = "RunOrphanScan",
   OrphanRowsDetected = "OrphanRowsDetected",

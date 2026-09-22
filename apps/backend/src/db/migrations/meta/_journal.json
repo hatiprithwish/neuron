@@ -85,6 +85,13 @@
       "when": 1789703870865,
       "tag": "0011_neuron",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790098315690,
+      "tag": "0012_neuron",
+      "breakpoints": true
     }
   ]
 }

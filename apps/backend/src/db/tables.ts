@@ -372,6 +372,36 @@ export const dailyFacts = table(
   ],
 );
 
+// DEV_NOTE: one free-form note per user per calendar day, written in the web app's block editor.
+// Kept out of `entries` on purpose — an entry belongs to a tracker and feeds entry_values/daily_facts,
+// and a note has no tracker, no metric and nothing to aggregate (architecture.md §9: text values get
+// no fact rows). content_json is the editor's Tiptap document; content_text is its plain-text
+// projection, derived by DailyLogsRepo on every write. The (user_id, local_date) unique index is
+// partial on deleted_at is null, like push_subscriptions.endpoint, so clearing a day and writing it
+// again inserts a fresh row instead of colliding with the soft-deleted one (invariant 9).
+export const dailyLogs = table(
+  "daily_logs",
+  {
+    id: t.int().primaryKey(),
+    publicId: t.text("public_id").notNull(),
+    userId: t.text("user_id").notNull(),
+    localDate: t.text("local_date").notNull(), // YYYY-MM-DD, the owner's own calendar day
+    tz: t.text().notNull(), // IANA zone users.tz held when the day was last written
+    contentJson: t.text("content_json", { mode: "json" }).$type<Schemas.TiptapDoc>().notNull(),
+    contentText: t.text("content_text").notNull(),
+    createdAt: t.integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: t.integer("updated_at", { mode: "timestamp" }),
+    deletedAt: t.integer("deleted_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    t.uniqueIndex("UNQ_daily_logs_public_id").on(table.publicId),
+    t
+      .uniqueIndex("UNQ_daily_logs_user_id_local_date")
+      .on(table.userId, table.localDate)
+      .where(sql`${table.deletedAt} is null`),
+  ],
+);
+
 // DEV_NOTE: the endpoint unique index is global, not per-user, and partial on deleted_at is null —
 // a push service issues one endpoint per browser-install/origin pair, so if user A signs out and
 // user B signs in on the same machine, the browser hands back the same endpoint. Per-user uniqueness

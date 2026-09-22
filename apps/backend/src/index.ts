@@ -10,6 +10,7 @@ import TrackerPlansRoutes from "@/routes/TrackerPlansRoutes";
 import EntitiesRoutes from "@/routes/EntitiesRoutes";
 import MetricsRoutes from "@/routes/MetricsRoutes";
 import NotificationsRoutes from "@/routes/NotificationsRoutes";
+import DailyLogsRoutes from "@/routes/DailyLogsRoutes";
 import OrphanScanRepo from "@/repositories/OrphanScanRepo";
 import NotificationsRepo from "@/repositories/NotificationsRepo";
 import * as Schemas from "@app/schemas";
@@ -56,6 +57,7 @@ app.route("/trackers", TrackersRoutes);
 app.route("/entities", EntitiesRoutes);
 app.route("/metrics", MetricsRoutes);
 app.route("/notifications", NotificationsRoutes);
+app.route("/daily-log", DailyLogsRoutes);
 
 // DEV_NOTE: last-resort net for exceptions thrown outside a DAL's try/catch (e.g. a third-party
 // SDK call in a route handler) — without this, Hono's default 500 has no body and the Workers

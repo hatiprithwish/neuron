@@ -7,13 +7,14 @@ import { cn } from "@/utils/tailwind";
 import { getLocalDateOf } from "@/utils/timeZone";
 
 interface NavItem {
-  to: "/trackers" | "/trackers/all" | "/metrics" | "/entities";
+  to: "/trackers" | "/daily-log" | "/trackers/all" | "/metrics" | "/entities";
   label: string;
   isActive: (pathname: string) => boolean;
 }
 
 const PRIMARY_NAV: NavItem[] = [
   { to: "/trackers", label: "Today", isActive: (path) => path === "/trackers" },
+  { to: "/daily-log", label: "Log", isActive: (path) => path.startsWith("/daily-log") },
   {
     to: "/trackers/all",
     label: "Trackers",
