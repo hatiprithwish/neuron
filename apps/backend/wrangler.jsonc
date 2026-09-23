@@ -71,7 +71,7 @@
       "r2_buckets": [
         {
           "binding": "MEDIA",
-          "bucket_name": "crux-media-staging",
+          "bucket_name": "neuron-media",
         },
       ],
       "d1_databases": [
@@ -107,7 +107,7 @@
       "r2_buckets": [
         {
           "binding": "MEDIA",
-          "bucket_name": "crux-media",
+          "bucket_name": "neuron-media",
         },
       ],
       "d1_databases": [
