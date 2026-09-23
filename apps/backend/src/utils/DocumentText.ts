@@ -1,3 +1,4 @@
+import { mediaPublicIdFromUrl } from "@app/schemas";
 import type * as Schemas from "@app/schemas";
 
 // DEV_NOTE: the plain-text projection of a Tiptap document stored as daily_logs.content_text. A
@@ -29,4 +30,23 @@ export function docToPlainText(doc: Schemas.TiptapDoc): string {
 export function plainTextPreview(text: string, maxChars = 200): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
   return collapsed.length > maxChars ? `${collapsed.slice(0, maxChars - 1).trimEnd()}…` : collapsed;
+}
+
+// DEV_NOTE: every image URL a document references, as the media publicIds behind them. This is
+// what lets DailyLogsRepo work out which uploads a save has orphaned: the document is the only
+// record of what an image is still attached to.
+export function collectMediaPublicIds(doc: Schemas.TiptapDoc): string[] {
+  const publicIds = new Set<string>();
+
+  const walk = (node: Schemas.TiptapNode) => {
+    const src = node.attrs?.src;
+    if (typeof src === "string") {
+      const publicId = mediaPublicIdFromUrl(src);
+      if (publicId) publicIds.add(publicId);
+    }
+    for (const child of node.content ?? []) walk(child);
+  };
+
+  walk(doc);
+  return [...publicIds];
 }

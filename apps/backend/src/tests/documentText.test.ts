@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { docToPlainText, plainTextPreview } from "@/utils/DocumentText";
+import { collectMediaPublicIds, docToPlainText, plainTextPreview } from "@/utils/DocumentText";
 import * as Schemas from "@app/schemas";
 
 const paragraph = (text: string): Schemas.TiptapNode => ({
@@ -89,5 +89,57 @@ describe("ZTiptapDoc", () => {
   it("rejects a document past the size cap", () => {
     const huge = paragraph("x".repeat(Schemas.DAILY_LOG_MAX_CONTENT_CHARS));
     expect(Schemas.ZTiptapDoc.safeParse({ type: "doc", content: [huge] }).success).toBe(false);
+  });
+});
+
+describe("collectMediaPublicIds", () => {
+  const imageDoc = (...srcs: string[]): Schemas.TiptapDoc => ({
+    type: "doc",
+    content: srcs.map((src) => ({ type: "image", attrs: { src } })),
+  });
+
+  it("finds media ids behind image URLs, wherever they are nested", () => {
+    const doc: Schemas.TiptapDoc = {
+      type: "doc",
+      content: [
+        paragraph("before"),
+        {
+          type: "blockquote",
+          content: [{ type: "image", attrs: { src: "https://api.example.com/media/med_abc123" } }],
+        },
+        { type: "image", attrs: { src: "https://api.example.com/media/med_def456" } },
+      ],
+    };
+
+    expect(docToPlainText(doc)).toBe("before");
+    expect(collectMediaPublicIds(doc).sort()).toEqual(["med_abc123", "med_def456"]);
+  });
+
+  it("de-duplicates the same image used twice and ignores foreign URLs", () => {
+    const doc = imageDoc(
+      "https://api.example.com/media/med_abc123",
+      "https://api.example.com/media/med_abc123",
+      "https://images.example.net/cat.png",
+      "blob:http://localhost:3000/9f1c-uploading",
+    );
+
+    expect(collectMediaPublicIds(doc)).toEqual(["med_abc123"]);
+  });
+
+  // DEV_NOTE: this difference is exactly what DailyLogsRepo deletes — an image dropped from a note
+  // between two saves.
+  it("gives the repo the set difference it deletes on", () => {
+    const before = collectMediaPublicIds(
+      imageDoc("https://api.example.com/media/med_kept", "https://api.example.com/media/med_gone"),
+    );
+    const after = new Set(
+      collectMediaPublicIds(imageDoc("https://api.example.com/media/med_kept")),
+    );
+
+    expect(before.filter((publicId) => !after.has(publicId))).toEqual(["med_gone"]);
+  });
+
+  it("returns nothing for a document with no images", () => {
+    expect(collectMediaPublicIds({ type: "doc", content: [paragraph("just words")] })).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@ import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
   CheckSquare,
+  ImageSquare,
   Code,
   ListBullets,
   ListNumbers,
@@ -15,6 +16,7 @@ import {
   TextT,
 } from "@phosphor-icons/react";
 import SlashMenu, { type SlashItem, type SlashMenuHandle, type SlashMenuProps } from "./-SlashMenu";
+import { openImagePicker } from "./-uploadImage";
 
 // DEV_NOTE: every item first deletes the "/query" the user typed, then turns the current block
 // into the chosen one — the same thing Notion's slash menu does, so the trigger text never lingers.
@@ -84,6 +86,18 @@ export const SLASH_ITEMS: SlashItem[] = [
     keywords: ["codeblock", "pre", "snippet"],
     icon: Code,
     run: (editor, range) => editor.chain().focus().deleteRange(range).setCodeBlock().run(),
+  },
+  {
+    title: "Image",
+    description: "Upload a picture",
+    keywords: ["image", "picture", "photo", "upload", "img"],
+    icon: ImageSquare,
+    // DEV_NOTE: the range goes first — the file dialog is modal, and leaving "/image" in the
+    // document behind it looks like the command didn't take.
+    run: (editor, range) => {
+      editor.chain().focus().deleteRange(range).run();
+      openImagePicker(editor);
+    },
   },
   {
     title: "Divider",

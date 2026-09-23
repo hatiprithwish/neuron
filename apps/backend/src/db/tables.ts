@@ -402,6 +402,34 @@ export const dailyLogs = table(
   ],
 );
 
+// DEV_NOTE: one row per uploaded object. The bytes live in R2 (binding MEDIA); this row is what
+// proves who owns them, what was stored, and — via the daily log's reference diffing — what is
+// still pointed at. public_id doubles as the R2 key's last segment and as the capability in the
+// URL, so it is the only identifier a client ever sees (invariant 11 still holds: `id` stays in).
+export const mediaObjects = table(
+  "media_objects",
+  {
+    id: t.int().primaryKey(),
+    publicId: t.text("public_id").notNull(),
+    userId: t.text("user_id").notNull(),
+    r2Key: t.text("r2_key").notNull(),
+    contentType: t.text("content_type").notNull(),
+    bytes: t.integer().notNull(),
+    width: t.integer(),
+    height: t.integer(),
+    createdAt: t.integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: t.integer("updated_at", { mode: "timestamp" }),
+    deletedAt: t.integer("deleted_at", { mode: "timestamp" }),
+  },
+  (table) => [
+    t.uniqueIndex("UNQ_media_objects_public_id").on(table.publicId),
+    t
+      .index("IDX_media_objects_user_id")
+      .on(table.userId)
+      .where(sql`${table.deletedAt} is null`),
+  ],
+);
+
 // DEV_NOTE: the endpoint unique index is global, not per-user, and partial on deleted_at is null —
 // a push service issues one endpoint per browser-install/origin pair, so if user A signs out and
 // user B signs in on the same machine, the browser hands back the same endpoint. Per-user uniqueness

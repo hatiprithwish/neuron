@@ -20,12 +20,16 @@ export async function apiClient<T>(
 ): Promise<T> {
   const token = getToken ? await getToken() : null;
 
+  // DEV_NOTE: a FormData body sets its own multipart Content-Type, boundary included — setting
+  // application/json over it makes the server unable to parse the parts (image uploads).
+  const isFormData = options?.body instanceof FormData;
+
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     // DEV_NOTE:signal is provided by TanStack Query — it aborts the fetch automatically when the component unmounts or the query is cancelled/re-triggered.
     signal: options?.signal,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },

@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { apiClient } from "@/providers/apiClient";
+import { MEDIA_UPLOAD_FIELD } from "@app/schemas";
 import type * as Schemas from "@app/schemas";
 import { toast } from "sonner";
 
@@ -77,6 +78,27 @@ export function useDeleteDailyLog() {
     },
     onError: () => {
       toast.error("Failed to delete this log. Please try again.");
+    },
+  });
+}
+
+// DEV_NOTE: multipart, not JSON — apiClient leaves the Content-Type to the browser when the body
+// is FormData so the multipart boundary survives. No cache key: an upload produces a new object
+// every time and nothing lists them; the URL goes straight into the document.
+export function useUploadMedia() {
+  const { getToken } = useAuth();
+
+  return useMutation({
+    mutationFn: (file: File) => {
+      const body = new FormData();
+      body.append(MEDIA_UPLOAD_FIELD, file);
+      return apiClient<Schemas.UploadMediaApiResponse>("/media", getToken, {
+        method: "POST",
+        body,
+      });
+    },
+    onError: () => {
+      toast.error("Couldn't upload that image. Please try again.");
     },
   });
 }

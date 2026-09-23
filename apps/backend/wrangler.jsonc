@@ -26,6 +26,18 @@
       "invocation_logs": true,
     },
   },
+  // DEV_NOTE: Cloudflare Images, transformations only — the Free plan covers optimizing images
+  // stored outside Images (ours live in R2), 5,000 unique transformations a month. Used once per
+  // upload (downscale + WebP) in MediaRepo, never on read, so serving costs no transformations.
+  "images": {
+    "binding": "IMAGES",
+  },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "neuron-media",
+    },
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -50,6 +62,18 @@
           "invocation_logs": true,
         },
       },
+      // DEV_NOTE: Cloudflare Images, transformations only — the Free plan covers optimizing images
+      // stored outside Images (ours live in R2), 5,000 unique transformations a month. Used once per
+      // upload (downscale + WebP) in MediaRepo, never on read, so serving costs no transformations.
+      "images": {
+        "binding": "IMAGES",
+      },
+      "r2_buckets": [
+        {
+          "binding": "MEDIA",
+          "bucket_name": "crux-media-staging",
+        },
+      ],
       "d1_databases": [
         {
           "binding": "DB",
@@ -74,6 +98,18 @@
           "invocation_logs": true,
         },
       },
+      // DEV_NOTE: Cloudflare Images, transformations only — the Free plan covers optimizing images
+      // stored outside Images (ours live in R2), 5,000 unique transformations a month. Used once per
+      // upload (downscale + WebP) in MediaRepo, never on read, so serving costs no transformations.
+      "images": {
+        "binding": "IMAGES",
+      },
+      "r2_buckets": [
+        {
+          "binding": "MEDIA",
+          "bucket_name": "crux-media",
+        },
+      ],
       "d1_databases": [
         {
           "binding": "DB",

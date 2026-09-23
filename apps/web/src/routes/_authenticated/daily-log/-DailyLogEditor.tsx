@@ -4,6 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Placeholder } from "@tiptap/extensions";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Typography from "@tiptap/extension-typography";
+import FileHandler from "@tiptap/extension-file-handler";
 import { DotsThree, Trash } from "@phosphor-icons/react";
 import * as Schemas from "@app/schemas";
 import { Button } from "@/shadcn/ui/button";
@@ -14,7 +15,9 @@ import {
   DropdownMenuTrigger,
 } from "@/shadcn/ui/dropdown-menu";
 import { cn } from "@/utils/tailwind";
-import { useDeleteDailyLog, useUpsertDailyLog } from "./-data";
+import { useDeleteDailyLog, useUploadMedia, useUpsertDailyLog } from "./-data";
+import { DailyLogImage } from "./-ImageExtension";
+import { insertImageUploads, registerImagePicker } from "./-uploadImage";
 import { SlashCommand } from "./-SlashCommand";
 import EditorBubbleMenu from "./-EditorBubbleMenu";
 import EditorDragHandle from "./-EditorDragHandle";
@@ -44,6 +47,11 @@ const PROSE_CLASSES = cn(
   "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.875em]",
   "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
   "[&_hr]:my-6 [&_hr]:border-border [&_hr.ProseMirror-selectednode]:border-primary",
+  "[&_img]:my-3 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md",
+  "[&_img.ProseMirror-selectednode]:ring-2 [&_img.ProseMirror-selectednode]:ring-primary",
+  // Resize handles, drawn by the Image extension's resizable node view.
+  "[&_[data-resize-handle]]:z-10 [&_[data-resize-handle]]:size-3 [&_[data-resize-handle]]:rounded-full",
+  "[&_[data-resize-handle]]:border-2 [&_[data-resize-handle]]:border-background [&_[data-resize-handle]]:bg-primary",
   "[&_a]:cursor-pointer [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
   // Placeholder extension — the hint sits in the empty block the cursor is in.
   "[&_.is-empty]:before:pointer-events-none [&_.is-empty]:before:float-left [&_.is-empty]:before:h-0",
@@ -73,6 +81,11 @@ interface DailyLogEditorProps {
 export default function DailyLogEditor({ localDate, initialContent }: DailyLogEditorProps) {
   const upsert = useUpsertDailyLog(localDate);
   const deleteLog = useDeleteDailyLog();
+  const uploadMedia = useUploadMedia();
+  // DEV_NOTE: bound to the mutation observer, so it keeps the same identity for the life of the
+  // component — safe to capture in the editor's extensions, which are built once.
+  const uploadImage = uploadMedia.mutateAsync;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDocRef = useRef<JSONContent | null>(null);
   const [status, setStatus] = useState<SaveStatus>("idle");
@@ -133,6 +146,26 @@ export default function DailyLogEditor({ localDate, initialContent }: DailyLogEd
       TaskList,
       TaskItem.configure({ nested: true }),
       Typography,
+      DailyLogImage,
+      // DEV_NOTE: FileHandler only reports the drop/paste — inserting the node and uploading the
+      // bytes is ours (see -uploadImage.ts). htmlContent means the paste carried markup (an image
+      // copied from a web page, which is a URL, not a file), so it's left to the normal paste path.
+      FileHandler.configure({
+        allowedMimeTypes: [...Schemas.ALLOWED_UPLOAD_TYPES],
+        onDrop: (current, files, pos) => {
+          void insertImageUploads({
+            editor: current,
+            files,
+            upload: uploadImage,
+            position: pos,
+          });
+        },
+        onPaste: (current, files, htmlContent) => {
+          if (htmlContent) return false;
+          void insertImageUploads({ editor: current, files, upload: uploadImage });
+          return true;
+        },
+      }),
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === "heading") return `Heading ${String(node.attrs.level)}`;
@@ -165,6 +198,13 @@ export default function DailyLogEditor({ localDate, initialContent }: DailyLogEd
 
   // DEV_NOTE: a hard close/reload can't be flushed reliably (a fetch fired from unload may be
   // dropped), so the browser's own "leave site?" prompt covers the last few hundred milliseconds.
+  // DEV_NOTE: the slash menu's Image item runs inside the editor and can't reach this component's
+  // file input, so the picker is registered against the editor instance for it to call.
+  useEffect(() => {
+    if (!editor) return;
+    return registerImagePicker(editor, () => fileInputRef.current?.click());
+  }, [editor]);
+
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (pendingDocRef.current || status === "saving") event.preventDefault();
@@ -197,8 +237,25 @@ export default function DailyLogEditor({ localDate, initialContent }: DailyLogEd
     });
   }
 
+  function handleFilesPicked(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = [...(event.target.files ?? [])];
+    // DEV_NOTE: reset first — picking the same file twice in a row fires no change event
+    // otherwise, which reads as the picker being broken.
+    event.target.value = "";
+    if (!editor || files.length === 0) return;
+    void insertImageUploads({ editor, files, upload: uploadMedia.mutateAsync });
+  }
+
   return (
     <div className="flex flex-col gap-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={Schemas.ALLOWED_UPLOAD_TYPES.join(",")}
+        multiple
+        hidden
+        onChange={handleFilesPicked}
+      />
       <div className="flex h-8 items-center justify-end gap-2">
         <p
           aria-live="polite"

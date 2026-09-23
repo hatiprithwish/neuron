@@ -88,6 +88,11 @@ export enum LogAction {
   GetDailyLogs = "GetDailyLogs",
   DeleteDailyLog = "DeleteDailyLog",
 
+  // Neuron — media (user uploads in R2, referenced from daily logs)
+  UploadMedia = "UploadMedia",
+  GetMedia = "GetMedia",
+  DeleteMedia = "DeleteMedia",
+
   // Infra — weekly orphan scan (architecture.md §4.1)
   RunOrphanScan = "RunOrphanScan",
   OrphanRowsDetected = "OrphanRowsDetected",

@@ -6,5 +6,6 @@ export * from "./metrics";
 export * from "./trackers";
 export * from "./trackerPlans";
 export * from "./dailyLogs";
+export * from "./media";
 export * from "./log";
 export * from "./common";

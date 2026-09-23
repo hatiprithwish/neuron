@@ -1,7 +1,8 @@
 import DailyLogsDAL from "@/data-access-layer/DailyLogsDAL";
 import UsersDAL from "@/data-access-layer/UsersDAL";
+import MediaRepo from "@/repositories/MediaRepo";
 import { localDateIn } from "@/utils/DateTime";
-import { docToPlainText, plainTextPreview } from "@/utils/DocumentText";
+import { collectMediaPublicIds, docToPlainText, plainTextPreview } from "@/utils/DocumentText";
 import type * as Schemas from "@app/schemas";
 
 // DEV_NOTE: same fallback as TrackersRepo — users.tz decides which calendar day is "today"
@@ -18,10 +19,35 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 export default class DailyLogsRepo {
   private dailyLogsDal: DailyLogsDAL;
   private usersDal: UsersDAL;
+  private mediaRepo: MediaRepo;
 
   constructor(env: Env) {
     this.dailyLogsDal = new DailyLogsDAL(env);
     this.usersDal = new UsersDAL(env);
+    this.mediaRepo = new MediaRepo(env);
+  }
+
+  // DEV_NOTE: the document is the only record of what an image is attached to, so every write
+  // compares the images the day referenced before against the ones it references now, and the
+  // difference is an upload nothing points at any more. Removing an image from a note therefore
+  // reclaims its bytes instead of leaving them in R2 forever.
+  // DEV_NOTE: never fails the save. The note is what the user wrote; a stranded object is a
+  // storage cost, and refusing their words to report one would be the wrong trade.
+  private async releaseUnreferencedMedia(params: {
+    userId: string;
+    previous: Schemas.DailyLog | null;
+    next: Schemas.TiptapDoc | null;
+  }): Promise<void> {
+    if (!params.previous) return;
+
+    const before = collectMediaPublicIds(params.previous.contentJson);
+    if (before.length === 0) return;
+
+    const after = new Set(params.next ? collectMediaPublicIds(params.next) : []);
+    const orphaned = before.filter((publicId) => !after.has(publicId));
+    if (orphaned.length === 0) return;
+
+    await this.mediaRepo.deleteMediaByPublicIds({ userId: params.userId, publicIds: orphaned });
   }
 
   private async resolveTz(userId: string): Promise<string> {
@@ -73,19 +99,27 @@ export default class DailyLogsRepo {
 
     const contentText = docToPlainText(params.body.contentJson);
 
-    if (contentText === "") {
-      const existing = await this.dailyLogsDal.getDailyLog({
-        userId: params.userId,
-        localDate: params.localDate,
-      });
-      if (!existing.isSuccess) return { isSuccess: false, message: existing.message };
+    // DEV_NOTE: read before write — the previous document is what the image cleanup diffs against,
+    // and after the upsert it is gone.
+    const existing = await this.dailyLogsDal.getDailyLog({
+      userId: params.userId,
+      localDate: params.localDate,
+    });
+    if (!existing.isSuccess) return { isSuccess: false, message: existing.message };
 
+    if (contentText === "") {
       if (existing.dailyLog) {
         const deleted = await this.dailyLogsDal.deleteDailyLog({
           userId: params.userId,
           localDate: params.localDate,
         });
         if (!deleted.isSuccess) return { isSuccess: false, message: deleted.message };
+
+        await this.releaseUnreferencedMedia({
+          userId: params.userId,
+          previous: existing.dailyLog,
+          next: null,
+        });
       }
 
       return { isSuccess: true, message: "Daily log cleared", dailyLog: null };
@@ -101,6 +135,12 @@ export default class DailyLogsRepo {
     if (!result.isSuccess || !result.dailyLog) {
       return { isSuccess: false, message: result.message };
     }
+
+    await this.releaseUnreferencedMedia({
+      userId: params.userId,
+      previous: existing.dailyLog ?? null,
+      next: params.body.contentJson,
+    });
 
     return {
       isSuccess: true,
