@@ -2,35 +2,22 @@ import type * as Schemas from "@app/schemas";
 import Utilities from "@/utils";
 import { getTodayLocalDate, addDaysToLocalDate } from "../trackers/-utils";
 
-// DEV_NOTE: design/things-mobile.png's tab order — accounts and categories first because money is
-// what most entities are, goals last because nothing links to one yet (LINKABLE_KINDS in
+// DEV_NOTE: design/things-mobile.png's tab order — accounts first because money is what most
+// entities are, goals last because nothing links to one yet (LINKABLE_KINDS in
 // trackers/-utils.ts). Ordering lives here rather than in the schema's ZEntityKind: which tab a user
 // sees first is a presentation decision, and the enum is a domain one.
-export const KIND_ORDER: Schemas.EntityKind[] = [
-  "account",
-  "tag",
-  "project",
-  "person",
-  "place",
-  "goal",
-];
+export const KIND_ORDER: Schemas.EntityKind[] = ["account", "person", "goal"];
 
 export const KIND_LABELS: Record<Schemas.EntityKind, string> = {
   account: "Accounts",
-  tag: "Categories",
-  project: "Projects",
   person: "People",
-  place: "Places",
   goal: "Goals",
 };
 
 // Used in a row's sub-line ("account · 47 entries"), where the plural tab label would read wrong.
 export const KIND_SINGULAR: Record<Schemas.EntityKind, string> = {
   account: "account",
-  tag: "category",
-  project: "project",
   person: "person",
-  place: "place",
   goal: "goal",
 };
 

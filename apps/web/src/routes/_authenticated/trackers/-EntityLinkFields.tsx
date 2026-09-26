@@ -14,16 +14,13 @@ import { Button } from "@/shadcn/ui/button";
 import type * as Schemas from "@app/schemas";
 import { EntitiesQueries } from "../entities/-data";
 
-// DEV_NOTE: entry_role and entity_kind share five names (architecture.md §3), so "which entity" and
+// DEV_NOTE: every entry_role is also an entity_kind (architecture.md §3), so "which entity" and
 // "in which role" are one choice, not two — an account entity can only ever be linked as role
 // "account". One select per role is also what enforces invariant 6 at the UI level: exactly one
 // entity per role per entry, so a slice-by-role donut always sums to 100%.
 const ROLE_LABELS: Record<Schemas.EntryRole, string> = {
-  project: "Project",
   person: "Person",
-  place: "Place",
   account: "Account",
-  tag: "Category",
 };
 
 const NONE_VALUE = "__none__";
@@ -42,20 +39,14 @@ export function EntityLinkFields({ value, onChange, roles, alwaysOpen }: EntityL
   const { getToken } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  // DEV_NOTE: five fixed queries rather than a loop — hook order has to be stable, and TanStack
-  // caches each kind's list app-wide, so a second form on the same page pays nothing.
-  const projects = useQuery(EntitiesQueries.list("project", getToken));
+  // DEV_NOTE: one fixed query per role rather than a loop — hook order has to be stable, and
+  // TanStack caches each kind's list app-wide, so a second form on the same page pays nothing.
   const people = useQuery(EntitiesQueries.list("person", getToken));
-  const places = useQuery(EntitiesQueries.list("place", getToken));
   const accounts = useQuery(EntitiesQueries.list("account", getToken));
-  const tags = useQuery(EntitiesQueries.list("tag", getToken));
 
   const byRole: Record<Schemas.EntryRole, Schemas.EntityApiShape[]> = {
-    project: projects.data?.entities ?? [],
     person: people.data?.entities ?? [],
-    place: places.data?.entities ?? [],
     account: accounts.data?.entities ?? [],
-    tag: tags.data?.entities ?? [],
   };
 
   const visibleRoles = (roles ?? (Object.keys(ROLE_LABELS) as Schemas.EntryRole[])).filter(

@@ -50,7 +50,7 @@ const today = new Date().toISOString().slice(0, 10);
 // Expenses are the amount_pad control (amount + currency + fxRate + role-scoped entity links);
 // transfers are the one thing no control could express, so they go through the compute escape
 // hatch (architecture.md §5, ComputeRegistry's money.transfer.v1). Accounts and categories are
-// ordinary entities of kind "account" / "tag" on the generic /entities surface.
+// ordinary entities of kind "account" / "person" on the generic /entities surface.
 const MONEY_MANIFEST = {
   control: "amount_pad" as const,
   metrics: ["money_expense_amount", "money_transfer_amount"],
@@ -76,7 +76,7 @@ const currencyMetric = (
   dateAttribution: "start" as const,
 });
 
-async function createEntity(name: string, kind: "account" | "tag"): Promise<string> {
+async function createEntity(name: string, kind: "account" | "person"): Promise<string> {
   const res = await worker.fetch(
     makeRequest("/entities", "POST", { entity: { name, kind } }),
     testEnv,
@@ -91,7 +91,7 @@ describe("Money as a manifest tracker (authenticated)", () => {
   let moneyTrackerPublicId: string;
   let cashAccountPublicId: string;
   let bankAccountPublicId: string;
-  let travelCategoryPublicId: string;
+  let friendPersonPublicId: string;
 
   beforeAll(async () => {
     // DEV_NOTE: money_transfer_amount has to exist before the tracker names it in manifest.metrics
@@ -121,13 +121,13 @@ describe("Money as a manifest tracker (authenticated)", () => {
 
     cashAccountPublicId = await createEntity("Cash", "account");
     bankAccountPublicId = await createEntity("Bank", "account");
-    travelCategoryPublicId = await createEntity("Travel", "tag");
+    friendPersonPublicId = await createEntity("Sam", "person");
     // DEV_NOTE: same reasoning as time.test.ts's breakdown hook — five remote round trips before a
     // single assertion runs, comfortably inside 30s on a good day and not on a bad one.
   }, 120_000);
 
   afterAll(async () => {
-    for (const publicId of [cashAccountPublicId, bankAccountPublicId, travelCategoryPublicId]) {
+    for (const publicId of [cashAccountPublicId, bankAccountPublicId, friendPersonPublicId]) {
       await worker.fetch(
         makeRequest(`/entities/${publicId}`, "DELETE"),
         testEnv,
@@ -145,9 +145,9 @@ describe("Money as a manifest tracker (authenticated)", () => {
     ctx = createExecutionContext();
   });
 
-  it("creates accounts and categories, structurally publicId-only", async () => {
+  it("creates accounts and people, structurally publicId-only", async () => {
     expect(cashAccountPublicId).toEqual(expect.any(String));
-    expect(travelCategoryPublicId).toEqual(expect.any(String));
+    expect(friendPersonPublicId).toEqual(expect.any(String));
 
     const listRes = await worker.fetch(makeRequest("/entities?kind=account"), testEnv, ctx);
     const list = (await listRes.json()) as { entities: { publicId: string; id?: unknown }[] };
@@ -167,7 +167,7 @@ describe("Money as a manifest tracker (authenticated)", () => {
           fxRate: 83, // 1 USD = 83 (minor-unit-consistent) home currency units
           entityLinks: [
             { entityPublicId: cashAccountPublicId, role: "account" },
-            { entityPublicId: travelCategoryPublicId, role: "tag" },
+            { entityPublicId: friendPersonPublicId, role: "person" },
           ],
         },
       }),
@@ -200,7 +200,7 @@ describe("Money as a manifest tracker (authenticated)", () => {
       body.entry.entities.map((link) => [link.role, link.entityPublicId]),
     );
     expect(roles.account).toBe(cashAccountPublicId);
-    expect(roles.tag).toBe(travelCategoryPublicId);
+    expect(roles.person).toBe(friendPersonPublicId);
   });
 
   it("an expense against an archived account is rejected", async () => {

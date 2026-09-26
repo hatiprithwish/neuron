@@ -12,8 +12,7 @@ import {
 } from "@/shadcn/ui/select";
 import * as Schemas from "@app/schemas";
 
-// DEV_NOTE: one form for accounts, categories, projects, people and places — `kind` is the only
-// thing that used to differ between Money's two forms and Time's one.
+// DEV_NOTE: one form for every entity kind — `kind` is the only thing that differs between them.
 interface EntityFormProps {
   defaultKind?: Schemas.EntityKind;
   // DEV_NOTE: seeded on the edit path. Kind rides along so the (disabled) select still shows what
@@ -26,16 +25,13 @@ interface EntityFormProps {
 }
 
 const KIND_LABELS: Record<Schemas.EntityKind, string> = {
-  project: "Project",
   person: "Person",
-  place: "Place",
   goal: "Goal",
   account: "Account",
-  tag: "Category",
 };
 
 export function EntityForm({
-  defaultKind = "project",
+  defaultKind = "goal",
   initialValue,
   lockKind = false,
   onSubmit,

@@ -111,8 +111,8 @@ describe("Entity usage stats (GET /entities?withStats=true)", () => {
   const logDate = "2026-04-02";
 
   beforeAll(async () => {
-    usedEntityPublicId = await createEntity(`Stats-used-${runSuffix}`, "project");
-    unusedEntityPublicId = await createEntity(`Stats-unused-${runSuffix}`, "project");
+    usedEntityPublicId = await createEntity(`Stats-used-${runSuffix}`, "person");
+    unusedEntityPublicId = await createEntity(`Stats-unused-${runSuffix}`, "person");
     trackerPublicId = await createTracker(`Stats ${runSuffix}`, `stats_reps_${runSuffix}`);
 
     // Two taps of 10, both attributed to the same entity, on one day.
@@ -122,7 +122,7 @@ describe("Entity usage stats (GET /entities?withStats=true)", () => {
           payload: {
             control: "increment",
             date: logDate,
-            entityLinks: [{ entityPublicId: usedEntityPublicId, role: "project" }],
+            entityLinks: [{ entityPublicId: usedEntityPublicId, role: "person" }],
           },
         }),
         testEnv,
@@ -153,7 +153,7 @@ describe("Entity usage stats (GET /entities?withStats=true)", () => {
 
   async function getStats(): Promise<StatsRow[]> {
     const res = await worker.fetch(
-      makeRequest("/entities?kind=project&withStats=true"),
+      makeRequest("/entities?kind=person&withStats=true"),
       testEnv,
       createExecutionContext(),
     );
@@ -195,7 +195,7 @@ describe("Entity usage stats (GET /entities?withStats=true)", () => {
 
   it("omits stats entirely when the caller didn't ask for them", async () => {
     const res = await worker.fetch(
-      makeRequest("/entities?kind=project"),
+      makeRequest("/entities?kind=person"),
       testEnv,
       createExecutionContext(),
     );

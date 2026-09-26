@@ -97,7 +97,7 @@ async function createTracker(name: string): Promise<string> {
 
 async function createEntity(name: string): Promise<string> {
   const res = await worker.fetch(
-    makeRequest("/entities", "POST", { entity: { name, kind: "project" } }),
+    makeRequest("/entities", "POST", { entity: { name, kind: "person" } }),
     testEnv,
     createExecutionContext(),
   );
@@ -188,7 +188,7 @@ describe("Restoring an archived entity", () => {
 
   it("comes back into its kind's list after restore", async () => {
     await archive(`/entities/${entityPublicId}`);
-    expect(await listPublicIds("/entities?kind=project", "entities")).not.toContain(entityPublicId);
+    expect(await listPublicIds("/entities?kind=person", "entities")).not.toContain(entityPublicId);
 
     // DEV_NOTE: the archived list is deliberately kind-less — the restore screen shows everything
     // archived, whatever kind it was.
@@ -200,7 +200,7 @@ describe("Restoring an archived entity", () => {
 
     const body = (await restored.json()) as { entity: { archivedAt: string | null } };
     expect(body.entity.archivedAt).toBeNull();
-    expect(await listPublicIds("/entities?kind=project", "entities")).toContain(entityPublicId);
+    expect(await listPublicIds("/entities?kind=person", "entities")).toContain(entityPublicId);
   });
 });
 

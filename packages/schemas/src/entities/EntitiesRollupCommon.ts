@@ -21,7 +21,7 @@ export const ZEntityRollupQuery = z.object({
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   // DEV_NOTE: invariant 6 — aggregation over entities always filters by exactly one role. Scoping to
   // a single entity already satisfies that (there is nothing to group across), so role is optional
-  // here: supply it to answer "time on this entity *as a project*", omit it for everything that ever
+  // here: supply it to answer "spend on this entity *as an account*", omit it for everything that ever
   // pointed at the entity in any role.
   role: ZEntryRole.optional(),
 });

@@ -117,7 +117,7 @@ describe("Cross-domain rollup (architecture.md §6)", () => {
   const logDate = "2026-04-01";
 
   beforeAll(async () => {
-    fitnessEntityPublicId = await createEntity(`Fitness-${runSuffix}`, "project");
+    fitnessEntityPublicId = await createEntity(`Gym-${runSuffix}`, "account");
     personEntityPublicId = await createEntity(`Coach-${runSuffix}`, "person");
 
     pushupsTrackerPublicId = await createTracker(
@@ -176,12 +176,12 @@ describe("Cross-domain rollup (architecture.md §6)", () => {
   it("sums two trackers' metrics against one entity, each metric once", async () => {
     // One tap on each tracker, both attributed to the same entity: 10 pushups + 5 squats.
     const pushups = await logTo(pushupsTrackerPublicId, [
-      { entityPublicId: fitnessEntityPublicId, role: "project" },
+      { entityPublicId: fitnessEntityPublicId, role: "account" },
     ]);
     expect(pushups.status).toBe(201);
 
     const squats = await logTo(squatsTrackerPublicId, [
-      { entityPublicId: fitnessEntityPublicId, role: "project" },
+      { entityPublicId: fitnessEntityPublicId, role: "account" },
     ]);
     expect(squats.status).toBe(201);
 
@@ -218,7 +218,7 @@ describe("Cross-domain rollup (architecture.md §6)", () => {
   // being counted once per link inside a single entity's total.
   it("an entry linked to two entities is still counted once in each rollup", async () => {
     const res = await logTo(pushupsTrackerPublicId, [
-      { entityPublicId: fitnessEntityPublicId, role: "project" },
+      { entityPublicId: fitnessEntityPublicId, role: "account" },
       { entityPublicId: personEntityPublicId, role: "person" },
     ]);
     expect(res.status).toBe(201);
@@ -255,14 +255,14 @@ describe("Cross-domain rollup (architecture.md §6)", () => {
   // DEV_NOTE: the role slice reads entries directly rather than daily_facts (which has no role
   // column) — both paths must agree, which is what this asserts.
   it("slicing by a role the entity was never linked under returns nothing", async () => {
-    const matching = await getRollup(`from=${logDate}&to=${logDate}&role=project`);
+    const matching = await getRollup(`from=${logDate}&to=${logDate}&role=account`);
     const matched = (await matching.json()) as {
       rollup: { metrics: { sum: number }[]; role: string | null };
     };
-    expect(matched.rollup.role).toBe("project");
+    expect(matched.rollup.role).toBe("account");
     expect(matched.rollup.metrics.length).toBeGreaterThan(0);
 
-    const other = await getRollup(`from=${logDate}&to=${logDate}&role=account`);
+    const other = await getRollup(`from=${logDate}&to=${logDate}&role=person`);
     const otherBody = (await other.json()) as { rollup: { metrics: unknown[] } };
     expect(otherBody.rollup.metrics).toHaveLength(0);
   });
@@ -287,7 +287,7 @@ describe("Cross-domain rollup (architecture.md §6)", () => {
 
     // Two taps of 10 on an averaged metric: sum 20, count 2, so the value is 10 — not 20.
     for (let tap = 0; tap < 2; tap++) {
-      await logTo(avgTrackerPublicId, [{ entityPublicId: fitnessEntityPublicId, role: "project" }]);
+      await logTo(avgTrackerPublicId, [{ entityPublicId: fitnessEntityPublicId, role: "account" }]);
     }
 
     const res = await getRollup(`from=${logDate}&to=${logDate}`);

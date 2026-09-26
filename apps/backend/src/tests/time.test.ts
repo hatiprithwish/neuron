@@ -205,7 +205,7 @@ describe("Time as a manifest tracker (authenticated)", () => {
 describe("Time breakdown (authenticated)", () => {
   let ctx: ExecutionContext;
   let trackerPublicId: string;
-  let projectPublicId: string;
+  let personPublicId: string;
 
   // DEV_NOTE: D1 here is `remote: true` — a real, persistent database, not reset between runs.
   // Fixed labels would accumulate sessions across every past run, making an exact entryCount
@@ -217,24 +217,24 @@ describe("Time breakdown (authenticated)", () => {
   beforeAll(async () => {
     trackerPublicId = await createTimeTracker(`Time Breakdown ${runSuffix}`);
 
-    const projectRes = await worker.fetch(
+    const personRes = await worker.fetch(
       makeRequest("/entities", "POST", {
-        entity: { name: `Book-${runSuffix}`, kind: "project" },
+        entity: { name: `Coauthor-${runSuffix}`, kind: "person" },
       }),
       testEnv,
       createExecutionContext(),
     );
-    const project = (await projectRes.json()) as { entity: { publicId: string } };
-    projectPublicId = project.entity.publicId;
+    const person = (await personRes.json()) as { entity: { publicId: string } };
+    personPublicId = person.entity.publicId;
 
     for (const label of [writingLabel, writingLabel, readingLabel]) {
       const startRes = await startTimer(trackerPublicId, label, [
-        { entityPublicId: projectPublicId, role: "project" },
+        { entityPublicId: personPublicId, role: "person" },
       ]);
       const started = (await startRes.json()) as { entry: { publicId: string } };
       await stopTimer(trackerPublicId, started.entry.publicId);
     }
-    // DEV_NOTE: this hook is eight remote round trips (tracker + project + three start/stop pairs),
+    // DEV_NOTE: this hook is eight remote round trips (tracker + person + three start/stop pairs),
     // and each stop fans out across entries/entry_values/daily_facts — it outgrew the config's
     // 30s hookTimeout. Widened here rather than globally, so a genuinely hung hook elsewhere still
     // fails fast.
@@ -242,7 +242,7 @@ describe("Time breakdown (authenticated)", () => {
 
   afterAll(async () => {
     await worker.fetch(
-      makeRequest(`/entities/${projectPublicId}`, "DELETE"),
+      makeRequest(`/entities/${personPublicId}`, "DELETE"),
       testEnv,
       createExecutionContext(),
     );
@@ -259,7 +259,7 @@ describe("Time breakdown (authenticated)", () => {
 
   it("returns per-label entry counts and summed duration, sliced by one role", async () => {
     const res = await worker.fetch(
-      makeRequest(`/trackers/${trackerPublicId}/breakdown?from=${today}&to=${today}&role=project`),
+      makeRequest(`/trackers/${trackerPublicId}/breakdown?from=${today}&to=${today}&role=person`),
       testEnv,
       ctx,
     );
@@ -279,8 +279,27 @@ describe("Time breakdown (authenticated)", () => {
 
     expect(writing?.entryCount).toBe(2);
     expect(reading?.entryCount).toBe(1);
-    expect(writing?.entityPublicId).toBe(projectPublicId);
+    expect(writing?.entityPublicId).toBe(personPublicId);
     expect(writing?.total).toBeGreaterThanOrEqual(0);
+  });
+
+  it("groups by label alone when no role is given", async () => {
+    const res = await worker.fetch(
+      makeRequest(`/trackers/${trackerPublicId}/breakdown?from=${today}&to=${today}`),
+      testEnv,
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      rows: { label: string | null; entityPublicId: string | null; entryCount: number }[];
+    };
+    const writingRows = body.rows.filter((row) => row.label === writingLabel);
+
+    expect(writingRows).toHaveLength(1);
+    expect(writingRows[0].entryCount).toBe(2);
+    expect(writingRows[0].entityPublicId).toBeNull();
   });
 });
 

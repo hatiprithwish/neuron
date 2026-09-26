@@ -4,8 +4,7 @@ import { apiClient } from "@/providers/apiClient";
 import type * as Schemas from "@app/schemas";
 import { toast } from "sonner";
 
-// DEV_NOTE: replaces Money's account/category queries and Time's project queries — one surface,
-// keyed by kind. Keys stay hierarchical: all() invalidates every kind's list.
+// DEV_NOTE: one surface for every entity kind, keyed by kind. Keys stay hierarchical: all() invalidates every kind's list.
 export class EntitiesQueries {
   static readonly keys = {
     all: () => ["entities"] as const,

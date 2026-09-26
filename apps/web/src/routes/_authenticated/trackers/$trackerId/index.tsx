@@ -102,7 +102,7 @@ function TrackerDetailPage() {
     enabled: selectedDate !== null,
   });
   const breakdownQuery = useQuery({
-    ...TrackersQueries.breakdown(trackerId, breakdownFrom, today, "project", getToken),
+    ...TrackersQueries.breakdown(trackerId, breakdownFrom, today, getToken),
     enabled: isInterval,
   });
 
@@ -304,7 +304,7 @@ function TrackerDetailPage() {
                 <div className="flex flex-col">
                   {(breakdownQuery.data?.rows ?? []).map((row) => (
                     <div
-                      key={`${row.label ?? "unlabelled"}-${row.entityPublicId ?? "none"}`}
+                      key={row.label ?? "unlabelled"}
                       className="flex items-center justify-between gap-4 border-b border-border px-6 py-3 text-sm"
                     >
                       <span className="truncate">{row.label ?? "Unlabelled"}</span>

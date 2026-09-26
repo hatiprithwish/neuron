@@ -42,11 +42,8 @@ function formatRollupValue(value: number | null): string {
 }
 
 const ROLE_LABELS: Record<Schemas.EntryRole, string> = {
-  project: "As a project",
   person: "As a person",
-  place: "As a place",
   account: "As an account",
-  tag: "As a category",
 };
 
 function EntityDetailPage() {

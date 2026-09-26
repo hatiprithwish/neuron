@@ -53,7 +53,7 @@ const runSuffix = Math.random().toString(36).slice(2, 8);
 
 // DEV_NOTE: entity CRUD used to be tested only incidentally, through Money's account/category
 // fixtures. Editing is its own surface now, and its one real rule — kind is immutable — is worth an
-// explicit test, because the failure it prevents (an account silently becoming a project while past
+// explicit test, because the failure it prevents (an account silently becoming a person while past
 // entries stay linked under role "account") is invisible until a rollup disagrees with a list.
 
 async function createEntity(name: string, kind: string): Promise<string> {
@@ -127,7 +127,7 @@ describe("Editing an entity", () => {
   });
 
   it("rejects a kind change — the schema doesn't accept the field at all", async () => {
-    const res = await patch(entityPublicId, { kind: "project" });
+    const res = await patch(entityPublicId, { kind: "person" });
     await waitOnExecutionContext(ctx);
     expect(res.status).toBe(400);
 
@@ -151,7 +151,7 @@ describe("Editing an entity", () => {
   // DEV_NOTE: archiving is a visibility flag, not a lock — fixing a typo in something you archived
   // shouldn't require restoring it first.
   it("an archived entity is still editable", async () => {
-    const archivedEntity = await createEntity(`Archived Editable ${runSuffix}`, "tag");
+    const archivedEntity = await createEntity(`Archived Editable ${runSuffix}`, "person");
     await worker.fetch(
       makeRequest(`/entities/${archivedEntity}`, "DELETE"),
       testEnv,

@@ -11,7 +11,7 @@ import { EntitiesQueries } from "./-data";
 import EntityRow from "./-EntityRow";
 import { combineTotals, KIND_LABELS, KIND_ORDER } from "./-utils";
 
-// DEV_NOTE: replaces Money's account/category lists and Time's project list — the named things any
+// DEV_NOTE: one list for every entity kind — the named things any
 // tracker's entries link to, in one place, because an entity is shared across trackers by design
 // (architecture.md §5).
 //
@@ -105,8 +105,8 @@ function EntitiesPage() {
             <h2 className="text-xl font-semibold">Nothing of this kind yet.</h2>
             <p className="max-w-md text-sm text-muted-foreground">
               {KIND_LABELS[kind].toLowerCase()} are what entries point at — the account a spend came
-              out of, the project an hour went into. Make one when a tracker needs somewhere to file
-              its entries.
+              out of, the person you spent an evening with. Make one when a tracker needs somewhere
+              to file its entries.
             </p>
           </div>
           <Button asChild className="self-start">

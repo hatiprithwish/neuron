@@ -4,8 +4,7 @@ import MetricsDAL from "@/data-access-layer/MetricsDAL";
 import { rangeValue } from "@/manifest/Aggregation";
 import type * as Schemas from "@app/schemas";
 
-// DEV_NOTE: the generic replacement for MoneyRepo's account/category CRUD and TimeRepo's project
-// CRUD — three copies of the same six methods that differed only by `kind`. Entities live outside
+// DEV_NOTE: one CRUD surface for every entity kind — the per-domain copies differed only by `kind`. Entities live outside
 // trackers precisely so the same one can be referenced from any number of them (architecture.md §5),
 // which is what makes a single surface the right shape here.
 export default class EntitiesRepo {

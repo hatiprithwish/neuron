@@ -99,7 +99,7 @@ describe("Neuron: entries + entry_values -> daily_facts", () => {
 
     const entity = await entitiesDAL.createEntity({
       userId,
-      kind: "project",
+      kind: "person",
       name: `Neuron Test Project ${runSuffix}`,
     });
     if (!entity.isSuccess || !entity.entity) {
@@ -127,7 +127,7 @@ describe("Neuron: entries + entry_values -> daily_facts", () => {
       tz: "UTC",
       source: "manual",
       values: [{ metricId, valueNum: 1 }],
-      entityLinks: [{ entityId, role: "project" }],
+      entityLinks: [{ entityId, role: "person" }],
     });
     const second = await entriesDAL.writeEntry({
       userId,
@@ -137,7 +137,7 @@ describe("Neuron: entries + entry_values -> daily_facts", () => {
       tz: "UTC",
       source: "manual",
       values: [{ metricId, valueNum: 1 }],
-      entityLinks: [{ entityId, role: "project" }],
+      entityLinks: [{ entityId, role: "person" }],
     });
 
     expect(first.isSuccess && first.entry).toBeTruthy();
@@ -165,7 +165,7 @@ describe("Neuron: entries + entry_values -> daily_facts", () => {
       tz: "UTC",
       source: "manual",
       values: [{ metricId, valueNum: 1 }],
-      entityLinks: [{ entityId, role: "project" }],
+      entityLinks: [{ entityId, role: "person" }],
     });
     expect(third.isSuccess && third.entry).toBeTruthy();
     if (third.entry) entryPublicIds.push(third.entry.publicId);

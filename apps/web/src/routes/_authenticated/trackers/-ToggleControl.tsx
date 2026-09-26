@@ -39,7 +39,7 @@ export function ToggleControl({
       />
 
       {/* DEV_NOTE: renders nothing until the user actually has entities, so a plain habit stays a
-          single button — but attributing one to a project or goal is what feeds the entity rollup
+          single button — but attributing one to a person or account is what feeds the entity rollup
           (architecture.md §6). */}
       <EntityLinkFields value={links} onChange={setLinks} />
     </div>

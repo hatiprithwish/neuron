@@ -91,14 +91,14 @@ export class TrackersQueries {
     publicId: string,
     from: string,
     to: string,
-    role: Schemas.EntryRole,
     getToken: () => Promise<string | null>,
+    role?: Schemas.EntryRole,
   ) {
     return queryOptions({
-      queryKey: [...TrackersQueries.keys.breakdown(publicId), from, to, role] as const,
+      queryKey: [...TrackersQueries.keys.breakdown(publicId), from, to, role ?? "all"] as const,
       queryFn: ({ signal }) =>
         apiClient<Schemas.GetTrackerBreakdownApiResponse>(
-          `/trackers/${publicId}/breakdown?from=${from}&to=${to}&role=${role}`,
+          `/trackers/${publicId}/breakdown?from=${from}&to=${to}${role ? `&role=${role}` : ""}`,
           getToken,
           { signal },
         ),

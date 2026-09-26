@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ZEntityKind, ZEntityStatus } from "./DomainEnums";
 
-// DEV_NOTE: entities are projects/people/places/etc — the shared "named thing to attach entries to"
+// DEV_NOTE: entities are goals/people/accounts — the shared "named thing to attach entries to"
 // across every domain, linked via entry_entities' role-scoped join. Live outside trackers so the
 // same entity can be referenced from any number of them. See architecture.md §5 "entities".
 

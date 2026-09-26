@@ -71,7 +71,7 @@ export const metrics = table(
   ],
 );
 
-// DEV_NOTE: projects/people/places/etc — the shared "named thing to attach entries to" across every
+// DEV_NOTE: goals/people/accounts — the shared "named thing to attach entries to" across every
 // domain, linked in via entry_entities' role-scoped join. Live outside trackers so the same entity
 // can be referenced from any number of them. See architecture.md §5 "entities".
 export const entities = table(
@@ -325,7 +325,7 @@ export const entryValues = table(
 );
 
 // DEV_NOTE: one entry, many entities — but one per role. The PK on (entry_id, role) is what
-// guarantees a "slice by project" donut sums to exactly 100%.
+// guarantees a "slice by role" donut sums to exactly 100%.
 export const entryEntities = table(
   "entry_entities",
   {

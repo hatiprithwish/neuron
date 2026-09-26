@@ -54,7 +54,7 @@ export const ZEntryValue = ZEntryValueBase.extend({
 export type EntryValue = z.infer<typeof ZEntryValue>;
 
 // One entry, many entities — but one per role (entry_entities' (entry_id, role) primary key is what
-// guarantees a "slice by project" donut sums to exactly 100%).
+// guarantees a "slice by role" donut sums to exactly 100%).
 export const ZEntryEntityLink = z.object({
   entryId: z.number(),
   entityId: z.number(),

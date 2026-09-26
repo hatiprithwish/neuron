@@ -119,11 +119,10 @@ date_attribution start | end | split
 
 entry_kind       point | interval
 
-entity_kind      project | person | place | goal | account | tag
+entity_kind      person | goal | account
 
-entry_role       project | person | place | account | tag
+entry_role       person | account
                  -- one entity per role per entry (unique constraint)
-                 -- tag: Money's expense categories (Phase 2) — entities of kind "tag"
 
 control          toggle | stepper | increment | timer | daily_total |
                  amount_pad | form

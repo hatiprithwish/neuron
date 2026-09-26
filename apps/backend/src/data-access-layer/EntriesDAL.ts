@@ -721,7 +721,7 @@ export default class EntriesDAL {
 
   // DEV_NOTE: architecture.md §7 Phase 3 — finds a tracker's open interval (running timer). Used by
   // start (enforce one running session at a time) and the running-session indicator. Returns the
-  // full EntryWithParts shape so a linked project (entry_role "project") can be resolved without a
+  // full EntryWithParts shape so a linked entity can be resolved without a
   // second round trip.
   async getOpenIntervalEntry(params: { userId: string; trackerId: number }) {
     const response: Schemas.ApiResponse & { entry?: EntryWithParts | null } = { isSuccess: false };
@@ -901,7 +901,7 @@ export default class EntriesDAL {
     try {
       const [usage, totals] = await Promise.all([
         // DEV_NOTE: COUNT(DISTINCT), not COUNT(*) — entry_entities' PK is (entry_id, role), so one
-        // entry that names the same entity as both its project and its category is two rows here
+        // entry that names the same entity under two roles is two rows here
         // and still one entry.
         this.db
           .select({
@@ -951,10 +951,10 @@ export default class EntriesDAL {
   }
 
   // DEV_NOTE: architecture.md §6 "Time-tracker breakdown" — queries entries directly (not
-  // daily_facts), grouped by label, left-joined on entry_entities for one role (the "slice by"
-  // parameter, defaulting to Time's "project") so an entry with no entity in that role still gets a
-  // row (entityId: null) instead of vanishing. Exactly one role, never a mix — invariant 6. The
-  // inner join on entry_values naturally excludes still-running sessions — they have no duration
+  // daily_facts), grouped by label. With a role (the "slice by" parameter) it also left-joins
+  // entry_entities for exactly that one role — invariant 6 — so an entry with no entity in it still
+  // gets a row (entityId: null) instead of vanishing. Without one it never touches entry_entities.
+  // The inner join on entry_values naturally excludes still-running sessions — they have no duration
   // reading yet (invariant 7: nothing to report isn't the same as zero).
   async getIntervalBreakdown(params: {
     userId: string;
@@ -967,35 +967,41 @@ export default class EntriesDAL {
     const response: Schemas.ApiResponse & {
       rows?: { label: string | null; entityId: number | null; entryCount: number; total: number }[];
     } = { isSuccess: false };
-    const role = params.role ?? "project";
 
     try {
-      const rows = await this.db
-        .select({
-          label: entries.label,
-          entityId: entryEntities.entityId,
-          entryCount: sql<number>`COUNT(*)`.mapWith(Number),
-          total: sql<number>`COALESCE(SUM(${entryValues.valueNum}), 0)`.mapWith(Number),
-        })
-        .from(entries)
-        .innerJoin(
-          entryValues,
-          and(eq(entryValues.entryId, entries.id), eq(entryValues.metricId, params.metricId)),
-        )
-        .leftJoin(
-          entryEntities,
-          and(eq(entryEntities.entryId, entries.id), eq(entryEntities.role, role)),
-        )
-        .where(
-          and(
-            eq(entries.userId, params.userId),
-            eq(entries.trackerId, params.trackerId),
-            gte(entries.localDate, params.dateFrom),
-            lte(entries.localDate, params.dateTo),
-            isNull(entries.deletedAt),
-          ),
-        )
-        .groupBy(entries.label, entryEntities.entityId);
+      const valuesJoin = and(
+        eq(entryValues.entryId, entries.id),
+        eq(entryValues.metricId, params.metricId),
+      );
+      const where = and(
+        eq(entries.userId, params.userId),
+        eq(entries.trackerId, params.trackerId),
+        gte(entries.localDate, params.dateFrom),
+        lte(entries.localDate, params.dateTo),
+        isNull(entries.deletedAt),
+      );
+      const entryCount = sql<number>`COUNT(*)`.mapWith(Number);
+      const total = sql<number>`COALESCE(SUM(${entryValues.valueNum}), 0)`.mapWith(Number);
+
+      const rows = params.role
+        ? await this.db
+            .select({ label: entries.label, entityId: entryEntities.entityId, entryCount, total })
+            .from(entries)
+            .innerJoin(entryValues, valuesJoin)
+            .leftJoin(
+              entryEntities,
+              and(eq(entryEntities.entryId, entries.id), eq(entryEntities.role, params.role)),
+            )
+            .where(where)
+            .groupBy(entries.label, entryEntities.entityId)
+        : (
+            await this.db
+              .select({ label: entries.label, entryCount, total })
+              .from(entries)
+              .innerJoin(entryValues, valuesJoin)
+              .where(where)
+              .groupBy(entries.label)
+          ).map((row) => ({ ...row, entityId: null }));
 
       response.isSuccess = true;
       response.message = "Breakdown fetched successfully";

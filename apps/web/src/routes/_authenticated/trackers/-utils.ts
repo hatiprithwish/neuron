@@ -367,9 +367,9 @@ export function formatStartDate(localDate: string): string {
   return localDate === getTodayLocalDate() ? `Today · ${formatted}` : formatted;
 }
 
-// DEV_NOTE: entry_role and entity_kind share five names (architecture.md §3) — an entity of kind
-// "project" links through role "project". "goal" entities have no role, so they're not linkable.
-export const LINKABLE_KINDS: Schemas.EntryRole[] = ["project", "person", "place", "account", "tag"];
+// DEV_NOTE: every entry_role is also an entity_kind (architecture.md §3) — an entity of kind
+// "account" links through role "account". "goal" entities have no role, so they're not linkable.
+export const LINKABLE_KINDS: Schemas.EntryRole[] = ["person", "account"];
 
 export function describeSchedule(schedule: Schemas.TrackerSchedule): string {
   if (schedule.type === "daily") return "Every day";

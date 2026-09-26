@@ -41,13 +41,11 @@ export type DateAttribution = z.infer<typeof ZDateAttribution>;
 export const ZEntryKind = z.enum(["point", "interval"]);
 export type EntryKind = z.infer<typeof ZEntryKind>;
 
-export const ZEntityKind = z.enum(["project", "person", "place", "goal", "account", "tag"]);
+export const ZEntityKind = z.enum(["person", "goal", "account"]);
 export type EntityKind = z.infer<typeof ZEntityKind>;
 
 // DEV_NOTE: one entity per role per entry — enforced by entry_entities' (entry_id, role) primary key.
-// "tag" added for Money's expense categories (architecture.md §7 Phase 2) — categories are
-// entities of kind "tag" linked via this role, not free-text on entries.label.
-export const ZEntryRole = z.enum(["project", "person", "place", "account", "tag"]);
+export const ZEntryRole = z.enum(["person", "account"]);
 export type EntryRole = z.infer<typeof ZEntryRole>;
 
 export const ZEntityStatus = z.enum(["active", "paused", "done"]);
