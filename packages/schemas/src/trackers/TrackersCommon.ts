@@ -87,6 +87,9 @@ export const ZTrackerBase = z.object({
   activeFrom: z.string(), // YYYY-MM-DD; heatmaps render nothing before this
   activeTo: z.string().nullable().optional(),
   reminderHour: z.number().int().min(0).max(23).nullable().optional(),
+  // DEV_NOTE: the goal entity this tracker counts toward, by public_id — null clears it. The DB
+  // holds goal_entity_id (ZTracker below); this is the only form that crosses the API boundary.
+  goalPublicId: z.string().nullable().optional(),
 });
 export type TrackerBase = z.infer<typeof ZTrackerBase>;
 
@@ -107,8 +110,9 @@ export type TrackerMetricSpec = z.infer<typeof ZTrackerMetricSpec>;
 // Whole Tracker Body — DB shape
 // DEV_NOTE: id / primaryMetricId are internal autoincrement PKs — used by DAL/Repo for joins only,
 // NEVER sent to a client as-is.
-export const ZTracker = ZTrackerBase.extend({
+export const ZTracker = ZTrackerBase.omit({ goalPublicId: true }).extend({
   id: z.number(),
+  goalEntityId: z.number().nullable(),
   publicId: z.string(),
   userId: z.string(),
   primaryMetricId: z.number(),
@@ -135,7 +139,11 @@ export interface TrackerMetricDetail {
 }
 
 // API response shape — internal ids structurally omitted, publicId is client-facing
-export type TrackerApiShape = Omit<Tracker, "id" | "primaryMetricId" | "deletedAt"> & {
+export type TrackerApiShape = Omit<
+  Tracker,
+  "id" | "primaryMetricId" | "goalEntityId" | "deletedAt"
+> & {
+  goalPublicId: string | null;
   primaryMetricPublicId: string;
   primaryMetricKey: string;
   metricDetails: TrackerMetricDetail[];

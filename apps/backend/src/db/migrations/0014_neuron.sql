@@ -1,0 +1,2 @@
+ALTER TABLE `trackers` ADD `goal_entity_id` integer;--> statement-breakpoint
+CREATE INDEX `IDX_trackers_goal_entity_id` ON `trackers` (`goal_entity_id`) WHERE "trackers"."goal_entity_id" is not null and "trackers"."deleted_at" is null;

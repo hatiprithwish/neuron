@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { z } from "zod";
 import { InfoHint } from "@/components/InfoHint";
@@ -18,6 +19,7 @@ import {
 } from "@/shadcn/ui/select";
 import { cn } from "@/utils/tailwind";
 import * as Schemas from "@app/schemas";
+import { EntitiesQueries } from "../entities/-data";
 import { MetricsQueries } from "../metrics/-data";
 import { IconPicker } from "./-IconPicker";
 import { TrackerPreview } from "./-TrackerPreview";
@@ -86,6 +88,7 @@ const ZTrackerFormValues = z
     // DEV_NOTE: null = "no reminder", the default for every tracker until its owner opts in — not a
     // manifest field (see ZTrackerBase's DEV_NOTE), so it travels as its own sibling here too.
     reminderHour: z.number().int().min(0).max(23).nullable(),
+    goalPublicId: z.string().nullable(),
     metricMode: z.enum(["derived", "custom", "existing"]),
     metricPublicId: z.string(),
     metricKey: z.string(),
@@ -278,6 +281,7 @@ function valuesFromTracker(tracker: Schemas.TrackerApiShape): TrackerFormValues 
     direction: manifest.direction ?? primary?.defaultDirection ?? "higher_better",
     activeFrom: tracker.activeFrom,
     reminderHour: tracker.reminderHour ?? null,
+    goalPublicId: tracker.goalPublicId,
     metricMode: "existing",
     metricPublicId: tracker.primaryMetricPublicId,
     metricKey: tracker.primaryMetricKey,
@@ -319,6 +323,8 @@ export function TrackerForm({
   const { getToken } = useAuth();
   const metricsQuery = useQuery(MetricsQueries.list(getToken));
   const metrics = metricsQuery.data?.metrics ?? [];
+  const goalsQuery = useQuery(EntitiesQueries.list("goal", getToken));
+  const goals = goalsQuery.data?.entities ?? [];
 
   const isEditing = tracker !== undefined;
   const [metricPanelOpen, setMetricPanelOpen] = useState(false);
@@ -346,6 +352,7 @@ export function TrackerForm({
         targetEffectiveFrom: getTodayLocalDate(),
         activeFrom: getTodayLocalDate(),
         reminderHour: null,
+        goalPublicId: null,
         metricMode: "derived",
         metricPublicId: "",
         metricKey: "",
@@ -397,6 +404,7 @@ export function TrackerForm({
             },
             activeFrom: value.activeFrom,
             reminderHour: value.reminderHour,
+            goalPublicId: value.goalPublicId,
           },
           metric: metricSpec,
         },
@@ -728,7 +736,7 @@ export function TrackerForm({
           </form.Field>
         </div>
 
-        <div className="border-b border-border px-6 py-5">
+        <div className="grid grid-cols-1 gap-5 border-b border-border px-6 py-5 sm:grid-cols-2">
           <form.Field name="reminderHour">
             {(field) => (
               <div className="flex flex-col gap-2 sm:max-w-60">
@@ -759,6 +767,58 @@ export function TrackerForm({
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="goalPublicId">
+            {(field) => (
+              <div className="flex flex-col gap-2 sm:max-w-60">
+                <div className="flex items-center gap-1.5">
+                  <FieldLabelText htmlFor={field.name}>Toward a goal</FieldLabelText>
+                  <InfoHint label="Why link a goal">
+                    The goal&apos;s page lists every tracker linked to it, so you can see what
+                    you&apos;re actually doing about it.
+                  </InfoHint>
+                </div>
+                {goalsQuery.isPending ? (
+                  <span className="text-sm text-muted-foreground">Loading goals…</span>
+                ) : goalsQuery.isError ? (
+                  <span className="text-sm text-destructive">Failed to load goals.</span>
+                ) : goals.length === 0 && field.state.value === null ? (
+                  <span className="text-sm text-muted-foreground">
+                    No goals yet.{" "}
+                    <Link to="/entities/new" className="underline underline-offset-4">
+                      Create one
+                    </Link>
+                  </span>
+                ) : (
+                  <Select
+                    value={field.state.value ?? "none"}
+                    onValueChange={(value) => field.handleChange(value === "none" ? null : value)}
+                  >
+                    <SelectTrigger id={field.name} className={UNDERLINE_TRIGGER}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="none">No goal</SelectItem>
+                        {goals.map((goal) => (
+                          <SelectItem key={goal.publicId} value={goal.publicId}>
+                            {goal.name}
+                          </SelectItem>
+                        ))}
+                        {/* DEV_NOTE: the goal list excludes archived goals, but a tracker can still
+                            point at one — without this item the trigger would render blank and
+                            re-saving would look like it cleared a link it didn't. */}
+                        {field.state.value !== null &&
+                        !goals.some((goal) => goal.publicId === field.state.value) ? (
+                          <SelectItem value={field.state.value}>Archived goal</SelectItem>
+                        ) : null}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             )}
           </form.Field>

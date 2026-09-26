@@ -37,6 +37,7 @@ function makeTracker(
     userId: "user_test123",
     name: "Test Tracker",
     colorIndex: null,
+    goalPublicId: null,
     manifest: {
       control,
       metrics: ["test_metric"],

@@ -333,6 +333,133 @@ describe("Trackers — editing", () => {
 // generic flow, with zero code specific to habits anywhere behind it, behaving exactly as the
 // Phase-0 hardcoded Habit did: idempotent day logging, daily_facts materialised on write and gone
 // on unlog, range reads.
+async function createEntity(name: string, kind: "goal" | "person"): Promise<string> {
+  const res = await worker.fetch(
+    makeRequest("/entities", "POST", { entity: { name, kind } }),
+    testEnv,
+    createExecutionContext(),
+  );
+  const body = (await res.json()) as { entity: { publicId: string } };
+  return body.entity.publicId;
+}
+
+async function archiveEntity(publicId: string) {
+  await worker.fetch(
+    makeRequest(`/entities/${publicId}`, "DELETE"),
+    testEnv,
+    createExecutionContext(),
+  );
+}
+
+describe("Trackers — goal link", () => {
+  let ctx: ExecutionContext;
+  let goalPublicId: string;
+  let otherGoalPublicId: string;
+  let personPublicId: string;
+
+  beforeAll(async () => {
+    goalPublicId = await createEntity("Get fit", "goal");
+    otherGoalPublicId = await createEntity("Run a marathon", "goal");
+    personPublicId = await createEntity("Coach", "person");
+  }, 60_000);
+
+  afterAll(async () => {
+    for (const publicId of [goalPublicId, otherGoalPublicId, personPublicId]) {
+      await archiveEntity(publicId);
+    }
+  });
+
+  beforeEach(() => {
+    ctx = createExecutionContext();
+  });
+
+  it("creates a tracker toward a goal, returning goalPublicId and never goalEntityId", async () => {
+    const tracker = await createTracker({
+      tracker: {
+        name: "Goal-linked Tracker",
+        manifest: habitManifest(),
+        activeFrom: today,
+        goalPublicId,
+      },
+      metric: newMetricSpec("Goal-linked Tracker"),
+    });
+
+    const res = await worker.fetch(makeRequest(`/trackers/${tracker.publicId}`), testEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { tracker: Record<string, unknown> };
+    expect(body.tracker.goalPublicId).toBe(goalPublicId);
+    expect(body.tracker.goalEntityId).toBeUndefined();
+
+    await archiveTracker(tracker.publicId);
+  });
+
+  it("moves a tracker to another goal, leaves the link alone when unnamed, and clears it on null", async () => {
+    const tracker = await createTracker({
+      tracker: { name: "Goal-moving Tracker", manifest: habitManifest(), activeFrom: today },
+      metric: newMetricSpec("Goal-moving Tracker"),
+    });
+
+    const patch = async (fields: Record<string, unknown>) => {
+      const res = await worker.fetch(
+        makeRequest(`/trackers/${tracker.publicId}`, "PATCH", { tracker: fields }),
+        testEnv,
+        createExecutionContext(),
+      );
+      expect(res.status).toBe(200);
+      return ((await res.json()) as { tracker: { goalPublicId: string | null } }).tracker;
+    };
+
+    expect((await patch({ goalPublicId })).goalPublicId).toBe(goalPublicId);
+    expect((await patch({ goalPublicId: otherGoalPublicId })).goalPublicId).toBe(otherGoalPublicId);
+    expect((await patch({ name: "Renamed Goal-moving Tracker" })).goalPublicId).toBe(
+      otherGoalPublicId,
+    );
+    expect((await patch({ goalPublicId: null })).goalPublicId).toBeNull();
+
+    await archiveTracker(tracker.publicId);
+  });
+
+  it("refuses to link an entity that isn't a goal, or a goal that doesn't exist", async () => {
+    const createRes = await worker.fetch(
+      makeRequest("/trackers", "POST", {
+        tracker: {
+          name: "Person-linked Tracker",
+          manifest: habitManifest(),
+          activeFrom: today,
+          goalPublicId: personPublicId,
+        },
+        metric: newMetricSpec("Person-linked Tracker"),
+      }),
+      testEnv,
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
+    expect(createRes.status).not.toBe(201);
+    const createBody = (await createRes.json()) as { isSuccess: boolean; message: string };
+    expect(createBody.isSuccess).toBe(false);
+    expect(createBody.message).toBe("Only a goal can be linked to a tracker");
+
+    const tracker = await createTracker({
+      tracker: { name: "Goal-refusing Tracker", manifest: habitManifest(), activeFrom: today },
+      metric: newMetricSpec("Goal-refusing Tracker"),
+    });
+    const patchRes = await worker.fetch(
+      makeRequest(`/trackers/${tracker.publicId}`, "PATCH", {
+        tracker: { goalPublicId: "ent_does_not_exist" },
+      }),
+      testEnv,
+      createExecutionContext(),
+    );
+    expect(patchRes.status).toBe(404);
+    const patchBody = (await patchRes.json()) as { message: string };
+    expect(patchBody.message).toBe("Goal not found");
+
+    await archiveTracker(tracker.publicId);
+  });
+});
+
 describe("Trackers — toggle control (habit parity)", () => {
   let ctx: ExecutionContext;
   let trackerPublicId: string;

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/tanstack-react-start";
 import { Button } from "@/shadcn/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shadcn/ui/tabs";
+import { EntitiesQueries } from "../../entities/-data";
 import { TrackersQueries, useArchiveTracker, useRunCompute } from "../-data";
 import TrackerHeatmap from "../-TrackerHeatmap";
 import { TrackerBackfillPanel } from "../-TrackerBackfillPanel";
@@ -95,6 +96,11 @@ function TrackerDetailPage() {
   });
   const tracker = trackerQuery.data?.tracker;
   const isInterval = tracker?.manifest.control === "timer";
+  const goalQuery = useQuery({
+    ...EntitiesQueries.detail(tracker?.goalPublicId ?? "", getToken),
+    enabled: Boolean(tracker?.goalPublicId),
+  });
+  const goal = goalQuery.data?.entity;
   // DEV_NOTE: a one-day slice — the backfill panel reaches a year back, and a day it can't see is a
   // day whose control would render against an empty count.
   const selectedDayQuery = useQuery({
@@ -175,6 +181,18 @@ function TrackerDetailPage() {
             <h1 className="font-heading truncate text-xl font-semibold sm:text-3xl">
               {tracker.name}
             </h1>
+            {goal ? (
+              <p className="truncate text-sm text-muted-foreground">
+                Toward{" "}
+                <Link
+                  to="/entities/$entityId"
+                  params={{ entityId: goal.publicId }}
+                  className="text-foreground underline underline-offset-4"
+                >
+                  {goal.name}
+                </Link>
+              </p>
+            ) : null}
           </div>
         </div>
 

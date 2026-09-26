@@ -17,6 +17,7 @@ type CreateTrackerParams = {
   activeFrom: string;
   activeTo?: string | null;
   reminderHour?: number | null;
+  goalEntityId?: number | null;
 };
 
 export default class TrackersDAL {
@@ -46,6 +47,7 @@ export default class TrackersDAL {
           activeFrom: params.activeFrom,
           activeTo: params.activeTo ?? null,
           reminderHour: params.reminderHour ?? null,
+          goalEntityId: params.goalEntityId ?? null,
           createdAt: now,
           updatedAt: null,
         })
@@ -85,6 +87,7 @@ export default class TrackersDAL {
       sortOrder?: number;
       activeFrom?: string;
       reminderHour?: number | null;
+      goalEntityId?: number | null;
     };
   }) {
     const response: Schemas.ApiResponse & { tracker?: Schemas.Tracker } = { isSuccess: false };

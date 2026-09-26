@@ -71,6 +71,7 @@ function EditTrackerPage() {
                   icon: value.tracker.icon,
                   activeFrom: value.tracker.activeFrom,
                   reminderHour: value.tracker.reminderHour,
+                  goalPublicId: value.tracker.goalPublicId,
                   manifest: {
                     target: value.tracker.manifest.target,
                     step: value.tracker.manifest.step,

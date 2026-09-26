@@ -15,6 +15,7 @@ import {
 import type * as Schemas from "@app/schemas";
 import { EntitiesQueries, useUpdateEntity } from "../-data";
 import { EntityForm } from "../-EntityForm";
+import { GoalTrackers } from "../-GoalTrackers";
 import { AGG_LABELS, addDaysToLocalDate, getTodayLocalDate } from "../../trackers/-utils";
 
 // DEV_NOTE: architecture.md §6 "Cross-domain aggregation" — the surface where trackers stop
@@ -58,15 +59,19 @@ function EntityDetailPage() {
   const from = addDaysToLocalDate(today, -(Number(windowDays) - 1));
 
   const entityQuery = useQuery(EntitiesQueries.detail(entityId, getToken));
-  const rollupQuery = useQuery(
-    EntitiesQueries.rollup(
+  const entityKind = entityQuery.data?.entity?.kind;
+  // DEV_NOTE: never fetched for a goal — no entry can be linked to one, so the answer is always
+  // empty. A goal's page shows its trackers instead (-GoalTrackers.tsx).
+  const rollupQuery = useQuery({
+    ...EntitiesQueries.rollup(
       entityId,
       from,
       today,
       getToken,
       role === ALL_ROLES ? undefined : (role as Schemas.EntryRole),
     ),
-  );
+    enabled: entityKind !== undefined && entityKind !== "goal",
+  });
 
   if (entityQuery.isPending) {
     return <div className="mx-auto max-w-2xl p-6">Loading entity...</div>;
@@ -131,103 +136,111 @@ function EntityDetailPage() {
         </Card>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Select value={windowDays} onValueChange={setWindowDays}>
-          <SelectTrigger className="w-44" aria-label="Date range">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {WINDOW_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+      {entity.kind === "goal" ? (
+        <GoalTrackers goalPublicId={entity.publicId} />
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Select value={windowDays} onValueChange={setWindowDays}>
+              <SelectTrigger className="w-44" aria-label="Date range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {WINDOW_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
 
-        {/* DEV_NOTE: invariant 6 — one role at a time, never a mix. "Everything" is safe here only
+            {/* DEV_NOTE: invariant 6 — one role at a time, never a mix. "Everything" is safe here only
             because the rollup is already scoped to a single entity. */}
-        <Select value={role} onValueChange={setRole}>
-          <SelectTrigger className="w-48" aria-label="Role slice">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value={ALL_ROLES}>Every role</SelectItem>
-              {(Object.keys(ROLE_LABELS) as Schemas.EntryRole[]).map((option) => (
-                <SelectItem key={option} value={option}>
-                  {ROLE_LABELS[option]}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="w-48" aria-label="Role slice">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value={ALL_ROLES}>Every role</SelectItem>
+                  {(Object.keys(ROLE_LABELS) as Schemas.EntryRole[]).map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {ROLE_LABELS[option]}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Rolled up across every tracker</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {rollupQuery.isPending ? (
-            <p className="text-sm text-muted-foreground">Loading rollup...</p>
-          ) : rollupQuery.isError ? (
-            <p className="text-sm text-destructive">Failed to load rollup.</p>
-          ) : !rollup || rollup.metrics.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nothing attributed to this entity in this window.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {rollup.combined ? (
-                <div className="flex flex-col gap-1">
-                  {/* DEV_NOTE: `value`, not `sum` — the server applies each metric's own
+          <Card>
+            <CardHeader>
+              <CardTitle>Rolled up across every tracker</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rollupQuery.isPending ? (
+                <p className="text-sm text-muted-foreground">Loading rollup...</p>
+              ) : rollupQuery.isError ? (
+                <p className="text-sm text-destructive">Failed to load rollup.</p>
+              ) : !rollup || rollup.metrics.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nothing attributed to this entity in this window.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {rollup.combined ? (
+                    <div className="flex flex-col gap-1">
+                      {/* DEV_NOTE: `value`, not `sum` — the server applies each metric's own
                       aggregation over the range, so an averaged metric shows its mean here rather
                       than a total of every reading it holds. */}
-                  <span className="text-3xl font-semibold tabular-nums">
-                    {formatRollupValue(rollup.combined.value)}
-                    <span className="ml-2 text-base font-normal text-muted-foreground">
-                      {rollup.combined.canonicalUnit}
-                    </span>
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {rollup.metrics.length} metrics {AGG_LABELS[rollup.combined.defaultAgg]} ·{" "}
-                    {rollup.combined.count} readings
-                  </span>
-                </div>
-              ) : (
-                // DEV_NOTE: mixed units don't add up — reps plus metres is a meaningless number, so
-                // the server refuses to invent one and the per-metric rows are the answer. The same
-                // refusal now covers metrics that disagree on aggregation: one metric's total plus
-                // another's average is the same error wearing a matching unit.
-                <p className="text-xs text-muted-foreground">
-                  These metrics use different units or aggregations, so they aren&apos;t combined
-                  into one number.
-                </p>
-              )}
+                      <span className="text-3xl font-semibold tabular-nums">
+                        {formatRollupValue(rollup.combined.value)}
+                        <span className="ml-2 text-base font-normal text-muted-foreground">
+                          {rollup.combined.canonicalUnit}
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {rollup.metrics.length} metrics {AGG_LABELS[rollup.combined.defaultAgg]} ·{" "}
+                        {rollup.combined.count} readings
+                      </span>
+                    </div>
+                  ) : (
+                    // DEV_NOTE: mixed units don't add up — reps plus metres is a meaningless number, so
+                    // the server refuses to invent one and the per-metric rows are the answer. The same
+                    // refusal now covers metrics that disagree on aggregation: one metric's total plus
+                    // another's average is the same error wearing a matching unit.
+                    <p className="text-xs text-muted-foreground">
+                      These metrics use different units or aggregations, so they aren&apos;t
+                      combined into one number.
+                    </p>
+                  )}
 
-              <div className="flex flex-col gap-2">
-                {rollup.metrics.map((metric) => (
-                  <div
-                    key={metric.metricPublicId}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span>
-                      {metric.metricName}
-                      <span className="ml-2 text-xs text-muted-foreground">{metric.metricKey}</span>
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {formatRollupValue(metric.value)} {metric.canonicalUnit} · {metric.count}×
-                    </span>
+                  <div className="flex flex-col gap-2">
+                    {rollup.metrics.map((metric) => (
+                      <div
+                        key={metric.metricPublicId}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span>
+                          {metric.metricName}
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {metric.metricKey}
+                          </span>
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatRollupValue(metric.value)} {metric.canonicalUnit} · {metric.count}×
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

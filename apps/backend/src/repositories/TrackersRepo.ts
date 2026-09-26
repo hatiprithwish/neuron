@@ -112,12 +112,14 @@ export default class TrackersRepo {
   private toTrackerApiShape(
     tracker: Schemas.Tracker,
     metrics: MetricLookup,
+    goalPublicIdById: Map<number, string>,
   ): Schemas.TrackerApiShape {
-    const { id: _id, primaryMetricId, deletedAt: _deletedAt, ...rest } = tracker;
+    const { id: _id, primaryMetricId, goalEntityId, deletedAt: _deletedAt, ...rest } = tracker;
     const metric = metrics.byId.get(primaryMetricId);
 
     return {
       ...rest,
+      goalPublicId: goalEntityId === null ? null : (goalPublicIdById.get(goalEntityId) ?? null),
       primaryMetricPublicId: metric?.publicId ?? "",
       primaryMetricKey: metric?.key ?? "",
       // DEV_NOTE: resolved from the manifest's own key list, so a client renders labels and units
@@ -191,6 +193,34 @@ export default class TrackersRepo {
     return new Map((result.entities ?? []).map((entity) => [entity.id, entity.publicId]));
   }
 
+  private goalPublicIdsFor(userId: string, trackers: Schemas.Tracker[]) {
+    return this.resolveEntityPublicIds(
+      userId,
+      trackers.flatMap((tracker) => (tracker.goalEntityId === null ? [] : [tracker.goalEntityId])),
+    );
+  }
+
+  // DEV_NOTE: architecture.md §4.1 point 1 — relationship columns are resolved by public_id on the
+  // way in, and the kind check is what the missing `references` can't give us: a tracker counts
+  // toward a goal, never toward an account or a person. `undefined` leaves the link alone; `null`
+  // clears it.
+  private async resolveGoal(
+    userId: string,
+    goalPublicId: string | null | undefined,
+  ): Promise<Schemas.ApiResponse & { goalEntityId?: number | null }> {
+    if (goalPublicId === undefined) return { isSuccess: true };
+    if (goalPublicId === null) return { isSuccess: true, goalEntityId: null };
+
+    const result = await this.entitiesDal.getEntity({ userId, publicId: goalPublicId });
+    if (!result.isSuccess || !result.entity) {
+      return { isSuccess: false, message: "Goal not found" };
+    }
+    if (result.entity.kind !== "goal") {
+      return { isSuccess: false, message: "Only a goal can be linked to a tracker" };
+    }
+    return { isSuccess: true, goalEntityId: result.entity.id };
+  }
+
   // --- create ----------------------------------------------------------------------------------
 
   // DEV_NOTE: the generic replacement for HabitsRepo.createHabit and Money/Time's lazily-created
@@ -203,6 +233,11 @@ export default class TrackersRepo {
     if (!computeCheck.isSuccess) {
       return { isSuccess: false, message: computeCheck.message };
     }
+
+    // DEV_NOTE: before the metric is resolved, so a bad goal can't leave a freshly created metric
+    // behind with no tracker on it.
+    const goal = await this.resolveGoal(params.userId, params.tracker.goalPublicId);
+    if (!goal.isSuccess) return { isSuccess: false, message: goal.message };
 
     let metric: Schemas.Metric | undefined;
 
@@ -268,6 +303,7 @@ export default class TrackersRepo {
       activeFrom: params.tracker.activeFrom,
       activeTo: params.tracker.activeTo,
       reminderHour: params.tracker.reminderHour,
+      goalEntityId: goal.goalEntityId,
     });
     if (!created.isSuccess || !created.tracker) {
       return { isSuccess: false, message: created.message };
@@ -293,7 +329,11 @@ export default class TrackersRepo {
     return {
       isSuccess: true,
       message: "Tracker created successfully",
-      tracker: this.toTrackerApiShape(created.tracker, metrics),
+      tracker: this.toTrackerApiShape(
+        created.tracker,
+        metrics,
+        await this.goalPublicIdsFor(params.userId, [created.tracker]),
+      ),
     };
   }
 
@@ -318,7 +358,9 @@ export default class TrackersRepo {
     const metrics = await this.loadMetrics(params.userId);
     if (!metrics) return { isSuccess: false, message: "Failed to load metrics" };
 
-    const { manifest: manifestPatch, ...columns } = params.tracker;
+    const { manifest: manifestPatch, goalPublicId, ...columns } = params.tracker;
+    const goal = await this.resolveGoal(params.userId, goalPublicId);
+    if (!goal.isSuccess) return { isSuccess: false, message: goal.message };
     const merged = manifestPatch ? { ...existing.tracker.manifest, ...manifestPatch } : undefined;
     // DEV_NOTE: same resolution createTracker does — an edit that clears direction is asking to go
     // back to the metric's default, not to store a null the scoring path would have to interpret.
@@ -393,7 +435,11 @@ export default class TrackersRepo {
     const updated = await this.trackersDal.updateTracker({
       userId: params.userId,
       publicId: params.publicId,
-      fields: { ...columns, ...(manifestToWrite ? { manifest: manifestToWrite } : {}) },
+      fields: {
+        ...columns,
+        ...(goal.goalEntityId !== undefined ? { goalEntityId: goal.goalEntityId } : {}),
+        ...(manifestToWrite ? { manifest: manifestToWrite } : {}),
+      },
     });
     if (!updated.isSuccess || !updated.tracker) {
       return { isSuccess: false, message: updated.message };
@@ -402,7 +448,11 @@ export default class TrackersRepo {
     return {
       isSuccess: true,
       message: "Tracker updated successfully",
-      tracker: this.toTrackerApiShape(updated.tracker, metrics),
+      tracker: this.toTrackerApiShape(
+        updated.tracker,
+        metrics,
+        await this.goalPublicIdsFor(params.userId, [updated.tracker]),
+      ),
     };
   }
 
@@ -555,7 +605,10 @@ export default class TrackersRepo {
     if (!metrics) return { isSuccess: false, message: "Failed to load metrics" };
 
     const trackers = trackersResult.trackers;
-    const shapes = trackers.map((tracker) => this.toTrackerApiShape(tracker, metrics));
+    const goalPublicIdById = await this.goalPublicIdsFor(params.userId, trackers);
+    const shapes = trackers.map((tracker) =>
+      this.toTrackerApiShape(tracker, metrics, goalPublicIdById),
+    );
 
     // DEV_NOTE: an archived tracker has no today — no quick-add widget renders for it, and asking
     // for streaks on rows the user is deciding whether to restore is a range scan for nothing.
@@ -753,7 +806,11 @@ export default class TrackersRepo {
     return {
       isSuccess: true,
       message: "Tracker fetched successfully",
-      tracker: this.toTrackerApiShape(trackerResult.tracker, metrics),
+      tracker: this.toTrackerApiShape(
+        trackerResult.tracker,
+        metrics,
+        await this.goalPublicIdsFor(params.userId, [trackerResult.tracker]),
+      ),
     };
   }
 
@@ -781,7 +838,11 @@ export default class TrackersRepo {
     return {
       isSuccess: true,
       message: result.message,
-      tracker: this.toTrackerApiShape(result.tracker, metrics),
+      tracker: this.toTrackerApiShape(
+        result.tracker,
+        metrics,
+        await this.goalPublicIdsFor(params.userId, [result.tracker]),
+      ),
     };
   }
 
@@ -878,8 +939,13 @@ export default class TrackersRepo {
     const result = await this.trackersDal.reorderTrackers({ userId: params.userId, order });
     if (!result.isSuccess) return { isSuccess: false, message: result.message };
 
+    const goalPublicIdById = await this.goalPublicIdsFor(params.userId, trackersResult.trackers);
     const reordered = params.trackerPublicIds.map((publicId) =>
-      this.toTrackerApiShape(byPublicId.get(publicId) as Schemas.Tracker, metrics),
+      this.toTrackerApiShape(
+        byPublicId.get(publicId) as Schemas.Tracker,
+        metrics,
+        goalPublicIdById,
+      ),
     );
 
     return { isSuccess: true, message: "Trackers reordered successfully", trackers: reordered };

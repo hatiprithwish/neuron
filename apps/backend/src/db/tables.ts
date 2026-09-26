@@ -145,6 +145,10 @@ export const trackers = table(
     // most trackers have no reminder. Partial-indexed below so the hourly dispatch's "every tracker
     // whose reminder hour is H" is an index seek, not a table scan.
     reminderHour: t.integer("reminder_hour"),
+    // DEV_NOTE: the one goal this tracker is evidence for — an entity of kind "goal", validated by
+    // TrackersRepo on write (no `references`, architecture.md §4.1). Nullable: most trackers serve
+    // no named goal, and a tracker is never required to justify itself.
+    goalEntityId: t.integer("goal_entity_id"),
     createdAt: t.integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: t.integer("updated_at", { mode: "timestamp" }),
     archivedAt: t.integer("archived_at", { mode: "timestamp" }),
@@ -160,6 +164,10 @@ export const trackers = table(
       .index("IDX_trackers_reminder_hour")
       .on(table.reminderHour, table.userId)
       .where(sql`${table.reminderHour} is not null and ${table.deletedAt} is null`),
+    t
+      .index("IDX_trackers_goal_entity_id")
+      .on(table.goalEntityId)
+      .where(sql`${table.goalEntityId} is not null and ${table.deletedAt} is null`),
   ],
 );
 
