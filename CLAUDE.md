@@ -4,7 +4,7 @@
 
 ## North Star — the problem Neuron solves
 
-Neuron is a life companion for people who want to live intentionally and build a life they absolutely love. The user is the main character of their own life, and Neuron is where they see, track and improve every part of it. It aims to be the most important companion they have, and ideally the only one they need. This is the core of the app. Whatever solving that problem takes, we build.
+Neuron is a life companion for people who want to live intentionally and build a life they absolutely love. The user is the main character of their own life, and Neuron is where they see, track and improve every part of it. Neuron helps you turn intentions into actions, actions into evidence, and evidence into better decisions. It aims to be the most important companion they have, and ideally the only one they need. This is the core of the app. Whatever solving that problem takes, we build.
 
 Check every feature, schema change and UI decision against it:
 
